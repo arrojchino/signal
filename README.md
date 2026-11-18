@@ -1,99 +1,52 @@
-# SOC Dashboard
+# Signal
 
-A local, single-file HTML dashboard that merges Wazuh alert exports with
-scanner findings CSV exports. Python standard library only - no pip installs,
-no CDN, no external assets. The report is fully self-contained (inline CSS/JS)
-and uses a professional dark aesthetic.
+A local-first finding ledger for application security work. Ingest a scanner export, verify findings with hashed evidence, and generate a self-contained HTML report.
 
-## Requirements
+Live: https://arrojchino.github.io/signal/
+Source: https://github.com/arrojchino/signal
 
-- Python 3.x (tested on Python 3.14.9, Windows 11 / git-bash)
-- No external packages. See `requirements.txt`.
+## Why it exists
+
+Most small appsec tools stop at "we found something". Signal keeps the part that survives review: a stable identity for each finding, an explicit verification state, and evidence whose hash can be checked later. It is one job, done properly, rather than a pile of scripts.
+
+## Design, borrowed from the best
+
+The architecture was shaped by studying twelve of the most-starred open-source security projects. Four ideas carried over:
+
+1. **Rules live in data.** `rules.json` holds severity order and schema version; adding a rule never means editing code. This is the Sherlock / SpiderFoot / CheatSheetSeries pattern.
+2. **One versioned result envelope.** Every command returns the same shape with `schema_version`, `report_id`, counts, verification counts and findings. This is Trivy's `types.Report` idea at small scale.
+3. **Verification is a state machine.** `unverified`, `confirmed`, `ruled_out`, `open_proof_gap`. "Could not verify" never silently becomes "clean" — the lesson from the AI pentesting tools.
+4. **Evidence is hashed, not trusted.** Each attached file gets a SHA-256 and a timestamp. The model never decides whether evidence is authentic; it only records that it was seen.
+
+The CLI is also importable as a library, following sqlmap's dual-use entrypoint.
+
+## Layout
+
+```
+signal.py      CLI and library: normalize, ingest, verify, render
+rules.json     declarative severity policy
+tests/         deterministic unittest suite
+README.md      this file
+```
+
+No external packages. No network calls. No credentials.
 
 ## Usage
 
-Build a report from your own exports:
-
 ```bash
-python dashboard.py --alerts ALERTS.json --findings FINDINGS.csv --out report.html
+python signal.py demo
+python signal.py ingest findings.csv --out store.json
+python signal.py verify store.json <fingerprint> confirmed --evidence proof.txt
+python signal.py report store.json --out report.html
+python -m unittest discover -s tests
 ```
 
-With an optional custom title:
+`ingest` accepts common column variants (`Application`, `Severity`, `CWE`, `Status`). Fingerprints are the first 16 hex chars of SHA-256 over the canonical fields, so the same finding gets the same ID across runs.
 
-```bash
-python dashboard.py --alerts ALERTS.json --findings FINDINGS.csv --out report.html --title "Nightly SOC Review"
-```
+## Report
 
-Generate synthetic sample data under `sample/` and build a demo report:
+The generated HTML is a single file with inline CSS, no CDN and no scripts. It shows severity counts, verification counts, the finding table, and truncated evidence hashes. States are printed verbatim so a reviewer can see what is still open.
 
-```bash
-python dashboard.py --demo
-```
+## Limits
 
-The demo writes `sample/alerts.json`, `sample/findings.csv`, and
-`sample/report.html`.
-
-Rebuild the report from the generated samples (explicit paths):
-
-```bash
-python dashboard.py --alerts sample/alerts.json --findings sample/findings.csv --out sample/report.html
-```
-
-Run `python dashboard.py --help` for the full argument list.
-
-## Input formats
-
-### Wazuh alerts (`--alerts`)
-
-A JSON array, a JSON object with an `alerts`/`results`/`hits`/`data` list, or
-JSON Lines (one JSON object per line). Recognized fields (all optional):
-
-- `rule.level`, `rule.description` (also `rule.title`, `description`)
-- `agent.name` (also `agent`, `agent_name`, `hostname`)
-- `timestamp` (also `@timestamp`, `time`, `date`)
-- `srcip` (also `src_ip`, `source_ip`)
-- `location`
-
-A row with neither a rule description nor a level is skipped and counted as
-malformed.
-
-### scanner findings (`--findings`)
-
-A CSV export with a header row. The canonical Scanner vocabulary is accepted:
-
-`Application Name`, `Application ID`, `Custom Severity Name`, `CVE ID`,
-`CWE ID`, `Flaw Name`, `First Found Date`, `Filename/Class`,
-`Finding Status`, `Fixed Date`, `Team Name`, `Days to Resolve`, `Scan Type`.
-
-Common variants are normalized automatically, including:
-
-- `Severity` or `Custom Severity` -> `Custom Severity Name`
-- `CWE` -> `CWE ID` (numeric values become `CWE-<n>`)
-- `Application` -> `Application Name`
-- `Status` -> `Finding Status`, `Team` -> `Team Name`
-- `CVE` -> `CVE ID`, `Filename` / `File Path` -> `Filename/Class`
-
-Blank or all-empty rows are skipped gracefully and reported in the
-provenance note.
-
-## Report sections
-
-- Summary cards: total alerts, high-severity alerts, total findings, critical findings
-- Severity Distribution bars for Wazuh alerts (by rule level) and scanner findings (by severity)
-- Top Triggered Rules
-- Top Affected Applications
-- Top CWEs
-- Recent Alerts table
-- Recent Findings table
-- Data Provenance and Disclaimer note
-
-A Wazuh rule level of 10 or higher counts as a high-severity alert; a finding
-with severity "Very High" or "Critical" counts as critical. These thresholds
-are constants at the top of `dashboard.py`.
-
-## Disclaimer
-
-This is an unofficial aggregation tool for SOC triage, not an official
-Scanner product. Counts and severities reflect the supplied exports at
-generation time and are evidence for review, not a verdict. Verify findings
-against the source systems before acting.
+Signal does not scan code, exploit anything, or connect to a network. It organizes evidence and makes claims checkable. Findings are heuristics until a human verifies them; a hash proves that bytes did not change, not that the claim is true.
