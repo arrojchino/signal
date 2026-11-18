@@ -45,6 +45,16 @@ class SignalTests(unittest.TestCase):
         self.assertIn("SQLi", html)
         self.assertIn("open_proof_gap", html)
 
+    def test_sarif_contract(self):
+        row = {"Application": "app", "Severity": "High", "CWE": "CWE-89", "Flaw Name": "SQLi", "Filename": "a.py", "Status": "open"}
+        doc = json.loads(sig.render_sarif(sig.envelope([sig.normalize(row, self.rules)], self.rules)))
+        self.assertEqual(doc["version"], "2.1.0")
+        self.assertEqual(len(doc["runs"]), 1)
+        result = doc["runs"][0]["results"][0]
+        self.assertEqual(result["ruleId"], "CWE-89")
+        self.assertEqual(result["level"], "error")
+        self.assertEqual(result["partialFingerprints"]["signal/v1"], sig.fingerprint(sig.normalize(row, self.rules)))
+
 
 if __name__ == "__main__":
     unittest.main()
