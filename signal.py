@@ -139,13 +139,51 @@ def render_html(store: dict) -> str:
 </body></html>"""
 
 
+def render_sarif(store: dict) -> str:
+    """SARIF 2.1.0 for CI consumers. Rules are keyed by CWE, results by fingerprint."""
+    levels = {"Critical": "error", "High": "error", "Medium": "warning", "Low": "note", "Info": "note"}
+    rules, seen = [], set()
+    results = []
+    for f in store["findings"]:
+        rid = f["CWE ID"] if f["CWE ID"] != "-" else "SIGNAL-UNMAPPED"
+        if rid not in seen:
+            seen.add(rid)
+            rules.append({
+                "id": rid,
+                "name": f["Flaw Name"],
+                "shortDescription": {"text": f["Flaw Name"]},
+                "defaultConfiguration": {"level": levels.get(f["Severity"], "note")},
+            })
+        results.append({
+            "ruleId": rid,
+            "level": levels.get(f["Severity"], "note"),
+            "message": {"text": f"{f['Flaw Name']} in {f['Application Name']}"},
+            "locations": [{"physicalLocation": {"artifactLocation": {"uri": f["Filename/Class"]}}}],
+            "partialFingerprints": {"signal/v1": f["Fingerprint"]},
+            "properties": {
+                "application": f["Application Name"],
+                "verification": f["Verification"],
+                "evidence": [e["sha256"] for e in f["Evidence"]],
+            },
+        })
+    doc = {
+        "version": "2.1.0",
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "runs": [{
+            "tool": {"driver": {"name": "signal", "version": "1.0.0", "rules": rules}},
+            "results": results,
+        }],
+    }
+    return json.dumps(doc, indent=2)
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description="Signal: local appsec finding ledger")
     p.add_argument("--rules", default="rules.json", help="path to rules.json")
     sub = p.add_subparsers(dest="cmd", required=True)
     a = sub.add_parser("ingest"); a.add_argument("csv"); a.add_argument("--out", default="store.json")
     v = sub.add_parser("verify"); v.add_argument("store"); v.add_argument("fingerprint"); v.add_argument("state", choices=STATES); v.add_argument("--evidence")
-    r = sub.add_parser("report"); r.add_argument("store"); r.add_argument("--out", default="report.html")
+    r = sub.add_parser("report"); r.add_argument("store"); r.add_argument("--out", default="report.html"); r.add_argument("--format", choices=("html", "sarif"), default="html")
     sub.add_parser("demo")
     args = p.parse_args(argv)
     rules = load_rules(Path(args.rules))
@@ -160,8 +198,9 @@ def main(argv=None):
         print(f"verified {args.fingerprint} -> {args.state}")
     elif args.cmd == "report":
         store = json.loads(Path(args.store).read_text(encoding="utf-8"))
-        Path(args.out).write_text(render_html(store), encoding="utf-8")
-        print(f"wrote {args.out}")
+        text = render_html(store) if args.format == "html" else render_sarif(store)
+        Path(args.out).write_text(text, encoding="utf-8")
+        print(f"wrote {args.out} ({args.format})")
     elif args.cmd == "demo":
         rows = [
             {"Application":"edge-gateway","Severity":"High","CWE":"CWE-89","Flaw Name":"SQL injection","Filename":"gateway.py","Finding Status":"open"},
