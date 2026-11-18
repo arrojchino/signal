@@ -1,0 +1,120 @@
+{
+  "version": "2.1.0",
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "signal",
+          "version": "1.0.0",
+          "rules": [
+            {
+              "id": "CWE-89",
+              "name": "SQL injection",
+              "shortDescription": {
+                "text": "SQL injection"
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              }
+            },
+            {
+              "id": "CWE-79",
+              "name": "Reflected XSS",
+              "shortDescription": {
+                "text": "Reflected XSS"
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "CWE-200",
+              "name": "Verbose error",
+              "shortDescription": {
+                "text": "Verbose error"
+              },
+              "defaultConfiguration": {
+                "level": "note"
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "CWE-89",
+          "level": "error",
+          "message": {
+            "text": "SQL injection in edge-gateway"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "gateway.py"
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "signal/v1": "77995a798e716a04"
+          },
+          "properties": {
+            "application": "edge-gateway",
+            "verification": "unverified",
+            "evidence": []
+          }
+        },
+        {
+          "ruleId": "CWE-79",
+          "level": "warning",
+          "message": {
+            "text": "Reflected XSS in auth-service"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "views.py"
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "signal/v1": "04949a10e1b645c0"
+          },
+          "properties": {
+            "application": "auth-service",
+            "verification": "unverified",
+            "evidence": []
+          }
+        },
+        {
+          "ruleId": "CWE-200",
+          "level": "note",
+          "message": {
+            "text": "Verbose error in asset-api"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "api.py"
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "signal/v1": "814237127c6694d9"
+          },
+          "properties": {
+            "application": "asset-api",
+            "verification": "unverified",
+            "evidence": []
+          }
+        }
+      ]
+    }
+  ]
+}
