@@ -38,6 +38,7 @@ python signal.py demo
 python signal.py ingest findings.csv --out store.json
 python signal.py verify store.json <fingerprint> confirmed --evidence proof.txt
 python signal.py report store.json --out report.html
+python signal.py report store.json --out results.sarif --format sarif
 python -m unittest discover -s tests
 ```
 
