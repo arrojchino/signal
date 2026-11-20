@@ -21,6 +21,19 @@ The architecture was shaped by studying twelve of the most-starred open-source s
 
 The CLI is also importable as a library, following sqlmap's dual-use entrypoint.
 
+## Design note: closed vocabularies, honest denominators
+
+A finding ledger is only reproducible if every verdict uses a name from a closed, documented set. This rule was borrowed from a YAML red-team task runner that scores manual prompt-injection trials: it grades each trial into a closed vocabulary (`secure_completion`, `compromised`, `inconclusive`), treats insufficient or contradictory observations as their own determinate status rather than folding them into "clean", and counts a success rate only over determinate records so a `0/0` cohort is reported as undefined, not zero.
+
+Signal applies the same rule twice:
+
+- **Severity is closed.** `rules.json` declares the only scored names (`Critical`, `High`, `Medium`, `Low`, `Info`). A finding whose severity is outside that list keeps its own name verbatim (or `Unspecified` when the field is absent) and gets `Severity Rank` 99, so it is never silently downgraded to `Low`. The unknown name stays visible in the envelope's `counts`, so a reviewer can see it rather than guess.
+- **Verification is closed.** `STATES` (`unverified`, `confirmed`, `ruled_out`, `open_proof_gap`) is enforced both by the CLI `choices` and by `verify()`, which raises on any other value. "Could not verify" has its own state and never becomes `confirmed` or disappears.
+
+The same discipline is used at the gate in the sibling Sentinel project: `releasegate.py` accepts a documented `severities` map so a team's own names score deterministically, while unmapped names stay indeterminate and an invalid target bucket is a fail-closed input error. A documented map plus a closed vocabulary is what keeps a verdict reproducible across teams that do not share the same scanner labels.
+
+This is a consistency claim, not a truth claim: an evidence hash proves the recorded bytes did not change, not that the finding is real or that verification was complete. States are printed verbatim in the report so "still open" stays visible.
+
 ## Layout
 
 ```
